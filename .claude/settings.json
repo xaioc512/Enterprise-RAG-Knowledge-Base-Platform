@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(poetry --version)",
+      "Bash(pip install *)",
+      "Bash(poetry install *)"
+    ]
+  }
+}

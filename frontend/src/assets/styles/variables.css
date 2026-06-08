@@ -1,0 +1,138 @@
+/* ============================================
+   企业AI知识库平台 — 设计变量
+   设计系统：Claude Design Language
+   暖奶油画布 + 珊瑚主调 + 深海军蓝产品面板
+   ============================================ */
+
+:root {
+  /* --- Brand & Accent --- */
+  --color-primary: #cc785c;
+  --color-primary-active: #a9583e;
+  --color-primary-disabled: #e6dfd8;
+  --color-accent-teal: #5db8a6;
+  --color-accent-amber: #e8a55a;
+
+  /* --- Surface — Light / Cream --- */
+  --color-canvas: #faf9f5;
+  --color-surface-soft: #f5f0e8;
+  --color-surface-card: #efe9de;
+  --color-surface-cream-strong: #e8e0d2;
+
+  /* --- Surface — Dark / Navy --- */
+  --color-surface-dark: #181715;
+  --color-surface-dark-elevated: #252320;
+  --color-surface-dark-soft: #1f1e1b;
+
+  /* --- Text — Ink Scale --- */
+  --color-ink: #141413;
+  --color-body-strong: #252523;
+  --color-body: #3d3d3a;
+  --color-muted: #6c6a64;
+  --color-muted-soft: #8e8b82;
+
+  /* --- Text — On-Colored-Surfaces --- */
+  --color-on-primary: #ffffff;
+  --color-on-dark: #faf9f5;
+  --color-on-dark-soft: #a09d96;
+
+  /* --- Hairline / Borders --- */
+  --color-hairline: #e6dfd8;
+  --color-hairline-soft: #ebe6df;
+
+  /* --- Semantic --- */
+  --color-success: #5db872;
+  --color-warning: #d4a017;
+  --color-error: #c64545;
+
+  /* --- Border Radius --- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* --- Spacing --- */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+  --space-section: 96px;
+
+  /* --- Typography: Font Family --- */
+  --font-display: 'Cormorant Garamond', 'EB Garamond', 'Times New Roman', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-code: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --font-button: 'Inter', -apple-system, sans-serif;
+
+  /* --- Typography: Fluid Font Sizes --- */
+  /* 格式: clamp(min, preferred, max) — 随视口宽度平滑缩放 */
+  --fs-display-xl: clamp(36px, 5vw, 80px);
+  --fs-display-lg: clamp(28px, 3.75vw, 56px);
+  --fs-display-md: clamp(24px, 2.8vw, 42px);
+  --fs-display-sm: clamp(20px, 2.2vw, 32px);
+  --fs-title-lg: clamp(18px, 1.7vw, 24px);
+  --fs-title-md: clamp(16px, 1.4vw, 19px);
+  --fs-title-sm: clamp(15px, 1.25vw, 17px);
+  --fs-body: clamp(14px, 1.15vw, 17px);
+  --fs-body-sm: clamp(13px, 1.0vw, 15px);
+  --fs-caption: clamp(12px, 0.95vw, 14px);
+  --fs-caption-sm: clamp(11px, 0.85vw, 13px);
+  --fs-button: clamp(13px, 1.05vw, 15px);
+  --fs-nav: clamp(13px, 1.05vw, 15px);
+  --fs-code: clamp(13px, 1.0vw, 15px);
+  --fs-hero: clamp(36px, 5.5vw, 88px);
+
+  /* --- Typography: Token Presets (使用 fluid 字号) --- */
+  --text-display-xl: 400 var(--fs-display-xl)/1.05 var(--font-display);
+  --text-display-lg: 400 var(--fs-display-lg)/1.10 var(--font-display);
+  --text-display-md: 400 var(--fs-display-md)/1.15 var(--font-display);
+  --text-display-sm: 400 var(--fs-display-sm)/1.20 var(--font-display);
+  --text-title-lg: 500 var(--fs-title-lg)/1.30 var(--font-body);
+  --text-title-md: 500 var(--fs-title-md)/1.40 var(--font-body);
+  --text-title-sm: 500 var(--fs-title-sm)/1.40 var(--font-body);
+  --text-body-md: 400 var(--fs-body)/1.55 var(--font-body);
+  --text-body-sm: 400 var(--fs-body-sm)/1.55 var(--font-body);
+  --text-caption: 500 var(--fs-caption)/1.40 var(--font-body);
+  --text-caption-upper: 500 var(--fs-caption-sm)/1.40 var(--font-body);
+  --text-code: 400 var(--fs-code)/1.60 var(--font-code);
+  --text-button: 500 var(--fs-button)/1.00 var(--font-button);
+  --text-nav: 500 var(--fs-nav)/1.40 var(--font-body);
+
+  /* --- Typography: Tracking --- */
+  --tracking-display-xl: -0.02em;
+  --tracking-display-lg: -0.015em;
+  --tracking-display-md: -0.01em;
+  --tracking-display-sm: -0.005em;
+  --tracking-caption-upper: 0.1em;
+
+  /* --- Shadows (used sparingly) --- */
+  --shadow-hover: 0 1px 3px rgba(20, 20, 19, 0.08);
+
+  /* --- Component Tokens --- */
+  --btn-primary-bg: var(--color-primary);
+  --btn-primary-text: var(--color-on-primary);
+  --btn-primary-hover: var(--color-primary-active);
+  --btn-height: 40px;
+  --btn-radius: var(--radius-md);
+  --btn-padding: 12px 20px;
+
+  --input-bg: var(--color-canvas);
+  --input-border: var(--color-hairline);
+  --input-focus-border: var(--color-primary);
+  --input-height: 40px;
+  --input-radius: var(--radius-md);
+  --input-padding: 10px 14px;
+
+  --card-padding: var(--space-xl);
+  --card-radius: var(--radius-lg);
+
+  --nav-height: 64px;
+
+  /* --- Transition --- */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+}

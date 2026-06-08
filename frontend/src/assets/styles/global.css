@@ -1,0 +1,120 @@
+/* ============================================
+   企业AI知识库平台 — 全局样式
+   设计系统：Claude Design Language
+   暖奶油画布 + 珊瑚主调 + 深海军蓝产品面板
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@import './variables.css';
+
+/* --- Reset & Base --- */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font: var(--text-body-md);
+  color: var(--color-body);
+  background: var(--color-canvas);
+  min-height: 100vh;
+}
+
+/* --- Typography --- */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--color-ink);
+}
+
+h1 {
+  font-size: var(--fs-display-lg);
+  line-height: 1.1;
+  letter-spacing: var(--tracking-display-lg);
+}
+
+h2 {
+  font-size: var(--fs-display-md);
+  line-height: 1.15;
+  letter-spacing: var(--tracking-display-md);
+}
+
+h3 {
+  font-size: var(--fs-display-sm);
+  line-height: 1.2;
+  letter-spacing: var(--tracking-display-sm);
+}
+
+h4 {
+  font-size: 22px;
+  line-height: 1.3;
+  font-family: var(--font-body);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+code, pre, .mono {
+  font: var(--text-code);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-primary-active);
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-muted-soft); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-muted); }
+
+/* --- Selection --- */
+::selection {
+  background: rgba(204, 120, 92, 0.18);
+  color: var(--color-ink);
+}
+
+/* --- Utility --- */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0);
+  white-space: nowrap; border: 0;
+}
+
+/* --- Animation Keyframes --- */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes subtle-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Stagger helpers */
+.stagger-delay-1 { animation-delay: 50ms; }
+.stagger-delay-2 { animation-delay: 100ms; }
+.stagger-delay-3 { animation-delay: 150ms; }
+.stagger-delay-4 { animation-delay: 200ms; }
+.stagger-delay-5 { animation-delay: 250ms; }

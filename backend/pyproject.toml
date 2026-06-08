@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "rag-platform-backend"
+version = "0.1.0"
+description = "企业私有化生成式AI平台 - 后端服务"
+authors = ["dev <dev@company.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+fastapi = "^0.115"
+uvicorn = {extras = ["standard"], version = "^0.32"}
+sqlalchemy = {extras = ["asyncio"], version = "^2.0"}
+asyncmy = "^0.2"
+alembic = "^1.14"
+redis = "^5.2"
+celery = {extras = ["redis"], version = "^5.4"}
+python-jose = {extras = ["cryptography"], version = "^3.3"}
+passlib = {extras = ["bcrypt"], version = "^1.7"}
+pydantic-settings = "^2.6"
+loguru = "^0.7"
+python-multipart = "^0.0.18"
+httpx = "^0.28"
+aiofiles = "^24.1"
+
+# LangChain & RAG
+langchain = "^0.3"
+langchain-openai = "^0.2"
+langchain-chroma = "^0.1"
+chromadb = "^0.5"
+
+# Document parsing
+PyPDF2 = "^3.0"
+python-docx = "^1.1"
+markdown = "^3.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
