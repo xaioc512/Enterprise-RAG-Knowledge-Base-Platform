@@ -6,13 +6,16 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.config import settings
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-)
+_engine_kwargs: dict = {
+    "echo": settings.DB_ECHO or settings.DEBUG,
+    "pool_pre_ping": True,
+}
+if settings.DB_POOL_SIZE > 0:
+    _engine_kwargs["pool_size"] = settings.DB_POOL_SIZE
+if settings.DB_MAX_OVERFLOW > 0:
+    _engine_kwargs["max_overflow"] = settings.DB_MAX_OVERFLOW
+
+engine = create_async_engine(settings.ASYNC_DATABASE_URL, **_engine_kwargs)
 
 async_session = async_sessionmaker(
     engine,

@@ -13,14 +13,21 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # --- 数据库 ---
+    DATABASE_URL: str = ""  # 环境变量覆盖（测试用SQLite等场景）
     MYSQL_HOST: str = "localhost"
     MYSQL_PORT: int = 3306
     MYSQL_USER: str = "root"
     MYSQL_PASSWORD: str = ""
     MYSQL_DATABASE: str = "rag_platform"
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_ECHO: bool = False
 
     @property
-    def DATABASE_URL(self) -> str:
+    def ASYNC_DATABASE_URL(self) -> str:
+        """异步数据库 URL — 可通过 DATABASE_URL 环境变量覆盖"""
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
         return (
             f"mysql+asyncmy://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
             f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"
@@ -28,6 +35,10 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL_SYNC(self) -> str:
+        """同步数据库 URL（Alembic 迁移使用）"""
+        if self.DATABASE_URL:
+            # 将异步驱动替换为同步驱动
+            return self.DATABASE_URL.replace("+asyncmy", "+mysqldb").replace("+aiosqlite", "+pysqlite")
         return (
             f"mysql+mysqldb://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
             f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}"

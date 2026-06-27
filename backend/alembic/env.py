@@ -24,7 +24,7 @@ target_metadata = Base.metadata
 def run_migrations_offline() -> None:
     """离线模式：仅生成 SQL 脚本，不连接数据库"""
     context.configure(
-        url=settings.DATABASE_URL,
+        url=settings.ASYNC_DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -43,7 +43,7 @@ def do_run_migrations(connection):
 async def run_migrations_online() -> None:
     """在线模式：连接数据库并执行迁移"""
     connectable = create_async_engine(
-        settings.DATABASE_URL,
+        settings.ASYNC_DATABASE_URL,
         poolclass=pool.NullPool,
     )
     async with connectable.connect() as connection:
