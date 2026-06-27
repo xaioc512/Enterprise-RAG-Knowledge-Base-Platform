@@ -9,11 +9,13 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
     email: str | None = Field(None, max_length=100)
     role: str = Field("user", pattern="^(admin|user)$")
+    department_id: int | None = None
 
 
 class UserUpdate(BaseModel):
     email: str | None = Field(None, max_length=100)
     role: str | None = Field(None, pattern="^(admin|user)$")
+    department_id: int | None = None
     is_active: bool | None = None
 
 
@@ -22,6 +24,7 @@ class UserResponse(BaseModel):
     username: str
     email: str | None
     role: str
+    department_id: int | None
     is_active: bool
     created_at: datetime
     updated_at: datetime

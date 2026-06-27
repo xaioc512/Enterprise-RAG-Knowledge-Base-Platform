@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440  # 24小时
 
+    # --- 管理员注册密钥 ---
+    # 注册时提供此密钥则自动成为管理员；为空则允许所有人注册为管理员
+    ADMIN_REGISTRATION_KEY: str = "admin-key-change-me"
+
     # --- Chroma ---
     CHROMA_PERSIST_DIR: str = str(Path(__file__).parent.parent / "chroma_data")
 

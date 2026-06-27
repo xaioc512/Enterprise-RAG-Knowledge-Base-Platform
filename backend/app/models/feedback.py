@@ -12,7 +12,7 @@ class Feedback(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     message_id: Mapped[str] = mapped_column(
-        ForeignKey("messages.id"), nullable=False, index=True
+        ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     rating: Mapped[str] = mapped_column(

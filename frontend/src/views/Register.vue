@@ -31,6 +31,24 @@
             <span v-if="errors.email" class="field-error">{{ errors.email }}</span>
           </div>
 
+          <!-- 管理员密钥（可选） -->
+          <div class="field-group">
+            <div class="input-row">
+              <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="3.5"/><path d="M8 11.5L8 8l4-3 4 3v3.5l-4 3-4-3z"/><path d="M8 8l-4 3v3.5l4 3"/><path d="M8 8l4 3v3.5l-4 3"/></svg>
+              <input v-model="form.adminKey" type="password" placeholder="管理员密钥（可选，正确即为管理员）" class="native-input" />
+            </div>
+          </div>
+
+          <!-- 部门选择 -->
+          <div class="field-group" v-if="!form.adminKey">
+            <div class="input-row">
+              <select v-model="form.departmentId" class="native-input dept-select">
+                <option :value="null">选择部门（可选）</option>
+                <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
+              </select>
+            </div>
+          </div>
+
           <div class="field-group" :class="{ errored: errors.password }">
             <div class="input-row">
               <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="12" height="10" rx="2"/><path d="M7 8V6a3 3 0 116 0v2"/><circle cx="10" cy="13" r="1.2"/></svg>
@@ -73,19 +91,23 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import api from '../api'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-const form = reactive({ username: '', email: '', password: '', confirmPassword: '' })
+const departments = ref([])
+const form = reactive({ username: '', email: '', password: '', confirmPassword: '', adminKey: '', departmentId: null })
 const errors = reactive({ username: '', email: '', password: '', confirm: '' })
 const loading = ref(false)
 const error = ref('')
 const showPwd1 = ref(false)
 const showPwd2 = ref(false)
+
+onMounted(async () => { try { departments.value = (await api.get('/departments/')).data } catch {} })
 
 function validate() {
   let ok = true
@@ -101,7 +123,7 @@ async function handleRegister() {
   if (!validate()) return
   loading.value = true; error.value = ''
   try {
-    await authStore.register(form.username, form.password, form.email || null)
+    await authStore.register(form.username, form.password, form.email || null, form.adminKey || null, form.departmentId || null)
     router.push('/')
   } catch (err) {
     error.value = err.response?.data?.detail || '注册失败，请稍后重试'
@@ -147,6 +169,8 @@ async function handleRegister() {
 }
 .native-input::placeholder { color: var(--color-muted-soft); }
 .native-input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px var(--color-canvas) inset !important; -webkit-text-fill-color: var(--color-ink) !important; }
+
+.dept-select { background: transparent; border: none; font: var(--text-body-md); color: var(--color-ink); outline: none; cursor: pointer; width: 100%; }
 
 .toggle-pwd { flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--color-muted-soft); padding: 4px; display: flex; border-radius: var(--radius-sm); transition: color 0.2s; }
 .toggle-pwd:hover { color: var(--color-muted); }

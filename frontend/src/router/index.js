@@ -26,6 +26,7 @@ const routes = [
     component: () => import('../views/HistoryView.vue'),
     meta: { requiresAuth: true },
   },
+  // 管理后台 — 仅管理员
   {
     path: '/admin',
     name: 'Admin',
@@ -36,12 +37,18 @@ const routes = [
     path: '/admin/documents',
     name: 'DocumentManage',
     component: () => import('../views/DocumentManage.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true },
+    meta: { requiresAuth: true },
   },
   {
     path: '/admin/categories',
     name: 'CategoryManage',
     component: () => import('../views/CategoryManage.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/admin/departments',
+    name: 'DepartmentManage',
+    component: () => import('../views/DepartmentManage.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
   },
   {

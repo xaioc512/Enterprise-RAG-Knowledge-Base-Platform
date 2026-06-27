@@ -63,17 +63,27 @@ def delete_document_from_chroma(document_id: int) -> None:
 def search_similar(
     query: str,
     k: int | None = None,
+    accessible_doc_ids: set[int] | None = None,
 ) -> list[tuple[str, dict, float]]:
     """相似度检索，返回 [(content, metadata, distance), ...]
+
+    Args:
+        query: 查询文本
+        k: 返回结果数量
+        accessible_doc_ids: 用户有权访问的 document_id 集合，None 表示无限制（admin）
 
     注意：Chroma 返回 distance（距离），非相似度分数。
     距离越小表示越相似。
     """
     collection = get_collection()
     k = k or settings.RETRIEVAL_K
+
+    # 有权限限制时预取更多结果
+    fetch_k = k * 3 if accessible_doc_ids is not None else k
+
     results = collection.query(
         query_texts=[query],
-        n_results=k,
+        n_results=fetch_k,
         include=["documents", "metadatas", "distances"],
     )
 
@@ -84,4 +94,15 @@ def search_similar(
     metas = results["metadatas"][0] if results.get("metadatas") else [{}] * len(docs)
     dists = results["distances"][0] if results.get("distances") else [0.0] * len(docs)
 
-    return [(docs[i], metas[i], dists[i]) for i in range(len(docs))]
+    # 权限过滤
+    if accessible_doc_ids is not None:
+        filtered = []
+        for i in range(len(docs)):
+            doc_id = metas[i].get("document_id") if metas[i] else None
+            if doc_id is not None and int(doc_id) in accessible_doc_ids:
+                filtered.append((docs[i], metas[i], dists[i]))
+                if len(filtered) >= k:
+                    break
+        return filtered
+
+    return [(docs[i], metas[i], dists[i]) for i in range(min(len(docs), k))]

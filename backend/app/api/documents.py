@@ -3,11 +3,11 @@
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.models.document import Document
+from app.models.document import Document, DocDepartment
 from app.models.user import User
 from app.schemas.document import DocumentResponse, DocumentListResponse, DocumentDetailResponse
 from app.middleware.auth_middleware import get_current_user, get_current_admin
@@ -22,6 +22,58 @@ from app.rag.loader import load_document
 router = APIRouter(prefix="/api/documents", tags=["文档管理"])
 
 
+def _build_access_filter(user: User):
+    """构建文档访问权限过滤条件
+
+    Admin: 全部可见
+    普通用户: public 文档 + 本部门 department 文档 + restricted 中共享给本部门的
+    """
+    if user.role == "admin":
+        return None  # 无过滤
+
+    conditions = [Document.visibility == "public"]
+    if user.department_id:
+        conditions.append(
+            (Document.visibility == "department") & (Document.department_id == user.department_id)
+        )
+        # restricted 中共享给本部门的
+        shared_subq = (
+            select(DocDepartment.document_id)
+            .where(DocDepartment.department_id == user.department_id)
+        )
+        conditions.append(Document.id.in_(shared_subq))
+
+    return or_(*conditions)
+
+
+async def _check_document_access(document_id: int, user: User, db: AsyncSession) -> Document:
+    """检查用户是否有权访问指定文档，返回文档或抛出404"""
+    result = await db.execute(select(Document).where(Document.id == document_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
+
+    if user.role == "admin":
+        return doc
+
+    # 普通用户：检查权限
+    if doc.visibility == "public":
+        return doc
+    if doc.visibility == "department" and user.department_id == doc.department_id:
+        return doc
+    if doc.visibility == "restricted" and user.department_id:
+        shared = await db.execute(
+            select(DocDepartment).where(
+                DocDepartment.document_id == doc.id,
+                DocDepartment.department_id == user.department_id,
+            )
+        )
+        if shared.scalar_one_or_none():
+            return doc
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
+
+
 @router.get("/", response_model=DocumentListResponse)
 async def list_documents(
     page: int = Query(1, ge=1),
@@ -30,9 +82,15 @@ async def list_documents(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """文档列表（支持分类筛选）"""
+    """文档列表（支持分类筛选 + 部门权限过滤）"""
     query = select(Document)
     count_query = select(func.count(Document.id))
+
+    # 权限过滤
+    access_filter = _build_access_filter(user)
+    if access_filter is not None:
+        query = query.where(access_filter)
+        count_query = count_query.where(access_filter)
 
     if category_id:
         query = query.where(Document.category_id == category_id)
@@ -62,12 +120,21 @@ async def list_documents(
 async def upload_document(
     file: UploadFile = File(...),
     category_id: int | None = Form(None),
+    visibility: str = Form("public"),
+    department_id: int | None = Form(None),
+    shared_department_ids: str | None = Form(None, description="逗号分隔的共享部门ID列表，仅visibility=restricted时有效"),
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """上传文档并开始处理"""
+    """上传文档并开始处理（仅管理员）"""
     # 验证文件类型
     file_type = detect_file_type(file.filename)
+
+    # 验证 visibility
+    if visibility not in ("public", "department", "restricted"):
+        raise HTTPException(status_code=400, detail="visibility 必须为 public/department/restricted")
+    if visibility == "department" and not department_id:
+        raise HTTPException(status_code=400, detail="department 可见性需要指定 department_id")
 
     # 保存文件
     file_path, stored_name = await save_upload_file(file)
@@ -81,21 +148,35 @@ async def upload_document(
         file_size=Path(file_path).stat().st_size,
         status="processing",
         uploaded_by=admin.id,
+        department_id=department_id,
+        visibility=visibility,
     )
     db.add(document)
     await db.flush()
     await db.refresh(document)
 
-    # 同步处理文档（MVP阶段，后续改为Celery异步）
-    # 注意：这里会阻塞请求直到处理完成，大文件建议用Celery
+    # 处理 restricted 共享部门
+    if visibility == "restricted" and shared_department_ids:
+        for dept_id_str in shared_department_ids.split(","):
+            try:
+                dept_id = int(dept_id_str.strip())
+                db.add(DocDepartment(document_id=document.id, department_id=dept_id))
+            except ValueError:
+                pass
+    elif visibility == "department" and department_id:
+        # department 可见性自动添加与所属部门的关联
+        db.add(DocDepartment(document_id=document.id, department_id=department_id))
+
+    await db.flush()
+
+    # 同步处理文档
     try:
         await process_document(document.id, file_path, file_type, db)
         await db.commit()
-        # 重新获取更新后的文档
         result = await db.execute(select(Document).where(Document.id == document.id))
         document = result.scalar_one()
     except Exception as e:
-        await db.commit()  # 错误状态已写入
+        await db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"文档处理失败: {str(e)}",
@@ -110,11 +191,8 @@ async def get_document(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取文档详情（含分块列表）"""
-    result = await db.execute(select(Document).where(Document.id == document_id))
-    document = result.scalar_one_or_none()
-    if not document:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
+    """获取文档详情（含分块列表 + 权限检查）"""
+    document = await _check_document_access(document_id, user, db)
 
     return DocumentDetailResponse(
         id=document.id,
@@ -126,6 +204,8 @@ async def get_document(
         status=document.status,
         error_message=document.error_message,
         uploaded_by=document.uploaded_by,
+        department_id=document.department_id,
+        visibility=document.visibility,
         created_at=document.created_at,
         updated_at=document.updated_at,
         chunks=[
@@ -141,11 +221,8 @@ async def preview_document(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """预览文档原始内容"""
-    result = await db.execute(select(Document).where(Document.id == document_id))
-    document = result.scalar_one_or_none()
-    if not document:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文档不存在")
+    """预览文档原始内容（权限检查）"""
+    document = await _check_document_access(document_id, user, db)
 
     try:
         text = load_document(document.file_path, document.file_type)
@@ -168,7 +245,7 @@ async def delete_document(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """删除文档（含向量和文件）"""
+    """删除文档（仅管理员，含向量和文件）"""
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = result.scalar_one_or_none()
     if not document:
@@ -184,7 +261,7 @@ async def delete_document(
     except Exception:
         pass
 
-    # 删除数据库记录（级联删除chunks）
+    # 删除关联（document_departments 由 CASCADE 自动删除）
     await db.delete(document)
     await db.flush()
 
@@ -195,7 +272,7 @@ async def reprocess(
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """重新处理文档"""
+    """重新处理文档（仅管理员）"""
     result = await db.execute(select(Document).where(Document.id == document_id))
     document = result.scalar_one_or_none()
     if not document:
@@ -204,6 +281,5 @@ async def reprocess(
     await reprocess_document(document_id, db)
     await db.commit()
 
-    # 重新获取更新后的文档
     result = await db.execute(select(Document).where(Document.id == document_id))
     return result.scalar_one()

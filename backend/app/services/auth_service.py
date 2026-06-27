@@ -22,7 +22,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     )
 
 
-def create_access_token(user_id: int, role: str) -> str:
+def create_access_token(user_id: int, role: str, department_id: int | None = None) -> str:
     """创建 JWT access token"""
     now = datetime.now(timezone.utc)
     payload = {
@@ -31,6 +31,8 @@ def create_access_token(user_id: int, role: str) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=settings.JWT_EXPIRE_MINUTES),
     }
+    if department_id is not None:
+        payload["dept"] = department_id
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 

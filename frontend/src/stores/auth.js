@@ -10,6 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   // --- Getters ---
   const isAuthenticated = computed(() => !!token.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
+  const departmentId = computed(() => user.value?.department_id || null)
 
   // --- Actions ---
   async function login(username, password) {
@@ -22,8 +23,11 @@ export const useAuthStore = defineStore('auth', () => {
     return userData
   }
 
-  async function register(username, password, email) {
-    const res = await api.post('/auth/register', { username, password, email })
+  async function register(username, password, email, adminKey = null, departmentId = null) {
+    const payload = { username, password, email }
+    if (adminKey) payload.admin_key = adminKey
+    if (departmentId) payload.department_id = departmentId
+    const res = await api.post('/auth/register', payload)
     const { access_token, user: userData } = res.data
     token.value = access_token
     user.value = userData
@@ -35,9 +39,11 @@ export const useAuthStore = defineStore('auth', () => {
   async function refreshToken() {
     try {
       const res = await api.post('/auth/refresh')
-      const { access_token } = res.data
+      const { access_token, user: userData } = res.data
       token.value = access_token
+      user.value = userData
       localStorage.setItem('token', access_token)
+      localStorage.setItem('user', JSON.stringify(userData))
     } catch {
       logout()
     }
@@ -52,7 +58,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   function restoreSession() {
     // Token 已在构造函数中从 localStorage 加载
-    // 如有需要可在此处校验 token 有效性
   }
 
   return {
@@ -60,6 +65,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     isAdmin,
+    departmentId,
     login,
     register,
     refreshToken,

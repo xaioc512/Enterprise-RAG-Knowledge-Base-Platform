@@ -1,7 +1,7 @@
 """用户模型"""
 
 from datetime import datetime
-from sqlalchemy import String, Boolean, Enum, DateTime, func
+from sqlalchemy import String, Boolean, Enum, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -18,6 +18,9 @@ class User(Base):
         Enum("admin", "user", name="user_role"),
         nullable=False,
         default="user",
+    )
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id"), nullable=True, index=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

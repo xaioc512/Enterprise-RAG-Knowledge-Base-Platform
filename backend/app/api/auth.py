@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
+
 from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -43,7 +45,7 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
             detail="账号已被禁用",
         )
 
-    access_token = create_access_token(user.id, user.role)
+    access_token = create_access_token(user.id, user.role, user.department_id)
 
     return TokenResponse(
         access_token=access_token,
@@ -53,13 +55,14 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
             username=user.username,
             email=user.email,
             role=user.role,
+            department_id=user.department_id,
         ),
     )
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """用户注册"""
+    """用户注册 — 提供正确的 admin_key 则注册为管理员"""
     # 检查用户名是否已存在
     result = await db.execute(
         select(User).where(User.username == req.username)
@@ -81,17 +84,23 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
                 detail="邮箱已被使用",
             )
 
+    # 判断角色：提供正确管理员密钥 → admin，否则 → user
+    role = "user"
+    if req.admin_key and settings.ADMIN_REGISTRATION_KEY and req.admin_key == settings.ADMIN_REGISTRATION_KEY:
+        role = "admin"
+
     user = User(
         username=req.username,
         password_hash=hash_password(req.password),
         email=req.email,
-        role="user",
+        role=role,
+        department_id=req.department_id if role == "user" else None,
     )
     db.add(user)
     await db.flush()
     await db.refresh(user)
 
-    access_token = create_access_token(user.id, user.role)
+    access_token = create_access_token(user.id, user.role, user.department_id)
 
     return TokenResponse(
         access_token=access_token,
@@ -101,6 +110,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
             username=user.username,
             email=user.email,
             role=user.role,
+            department_id=user.department_id,
         ),
     )
 
@@ -110,7 +120,7 @@ async def refresh_token(
     user: User = Depends(get_current_user),
 ):
     """刷新 Token"""
-    access_token = create_access_token(user.id, user.role)
+    access_token = create_access_token(user.id, user.role, user.department_id)
 
     return TokenResponse(
         access_token=access_token,
@@ -120,6 +130,7 @@ async def refresh_token(
             username=user.username,
             email=user.email,
             role=user.role,
+            department_id=user.department_id,
         ),
     )
 

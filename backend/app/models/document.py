@@ -1,10 +1,22 @@
 """文档与分块模型"""
 
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Enum, DateTime, ForeignKey, func
+from sqlalchemy import String, Text, Integer, Enum, DateTime, ForeignKey, func, Table, Column, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+# 文档-部门多对多关联表（restricted 可见性）
+class DocDepartment(Base):
+    __tablename__ = "document_departments"
+
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+    )
+    department_id: Mapped[int] = mapped_column(
+        ForeignKey("departments.id", ondelete="CASCADE"), primary_key=True
+    )
 
 
 class Document(Base):
@@ -26,6 +38,18 @@ class Document(Base):
     )
     error_message: Mapped[str] = mapped_column(Text, nullable=True)
     uploaded_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    department_id: Mapped[int | None] = mapped_column(
+        ForeignKey("departments.id"), nullable=True, index=True
+    )
+    visibility: Mapped[str] = mapped_column(
+        Enum("public", "department", "restricted", name="doc_visibility"),
+        nullable=False,
+        default="public",
+    )
+    # 智能标注字段
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    keywords: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    suggested_category_id: Mapped[int | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
@@ -35,6 +59,13 @@ class Document(Base):
 
     chunks: Mapped[list["DocumentChunk"]] = relationship(
         "DocumentChunk", back_populates="document", cascade="all, delete-orphan"
+    )
+    shared_departments: Mapped[list[int]] = relationship(
+        "Department",
+        secondary="document_departments",
+        primaryjoin="Document.id == DocDepartment.document_id",
+        secondaryjoin="DocDepartment.department_id == Department.id",
+        viewonly=True,
     )
 
 

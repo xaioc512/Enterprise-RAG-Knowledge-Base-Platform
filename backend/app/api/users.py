@@ -7,8 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserListResponse
-from app.schemas.auth import UserInfo, TokenResponse
-from app.services.auth_service import hash_password, create_access_token
+from app.services.auth_service import hash_password
 from app.middleware.auth_middleware import get_current_user, get_current_admin
 
 router = APIRouter(prefix="/api/users", tags=["用户管理"])
@@ -26,7 +25,7 @@ async def update_me(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """修改当前用户信息"""
+    """修改当前用户信息（不允许自行修改角色/部门/激活状态）"""
     if data.email is not None:
         user.email = data.email
     await db.flush()
@@ -86,6 +85,7 @@ async def create_user(
         password_hash=hash_password(data.password),
         email=data.email,
         role=data.role,
+        department_id=data.department_id,
     )
     db.add(user)
     await db.flush()
@@ -110,6 +110,8 @@ async def update_user(
         user.email = data.email
     if data.role is not None:
         user.role = data.role
+    if data.department_id is not None:
+        user.department_id = data.department_id
     if data.is_active is not None:
         user.is_active = data.is_active
 

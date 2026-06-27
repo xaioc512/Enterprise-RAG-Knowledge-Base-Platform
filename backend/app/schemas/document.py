@@ -1,7 +1,7 @@
 """文档管理 Pydantic 模型"""
 
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DocumentResponse(BaseModel):
@@ -14,6 +14,11 @@ class DocumentResponse(BaseModel):
     status: str
     error_message: str | None = None
     uploaded_by: int | None
+    department_id: int | None
+    visibility: str
+    summary: str | None = None
+    keywords: list | None = None
+    suggested_category_id: int | None = None
     created_at: datetime
     updated_at: datetime
 

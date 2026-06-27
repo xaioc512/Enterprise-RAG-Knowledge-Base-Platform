@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.utils.logger import setup_logger, logger
 from app.database import check_db_connection
-from app.api import auth, users, documents, categories, chat, conversations, feedback
+from app.api import auth, users, documents, categories, chat, conversations, feedback, stats, audit_logs, export, suggestions, departments
 
 
 @asynccontextmanager
@@ -36,6 +36,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# 审计中间件（在 CORS 之前注册）
+from app.middleware.audit_middleware import AuditMiddleware
+app.add_middleware(AuditMiddleware)
+
 # CORS 配置
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +57,11 @@ app.include_router(categories.router)
 app.include_router(chat.router)
 app.include_router(conversations.router)
 app.include_router(feedback.router)
+app.include_router(stats.router)
+app.include_router(audit_logs.router)
+app.include_router(export.router)
+app.include_router(suggestions.router)
+app.include_router(departments.router)
 
 
 @app.get("/api/health")

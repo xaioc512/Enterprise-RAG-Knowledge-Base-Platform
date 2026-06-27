@@ -98,6 +98,27 @@ async def process_document(
         doc.chunk_count = len(chunks)
         await db.flush()
 
+        # 7. 智能标注（异步非阻塞 — 失败不影响主流程）
+        try:
+            from app.services.tagging_service import auto_tag_document
+            tags = await auto_tag_document(text)
+            if tags.get("summary"):
+                doc.summary = tags["summary"]
+            if tags.get("keywords"):
+                doc.keywords = tags["keywords"]
+            if tags.get("suggested_category"):
+                cat_name = tags["suggested_category"]
+                from app.models.category import Category
+                from sqlalchemy import select
+                result = await db.execute(select(Category).where(Category.name == cat_name))
+                cat = result.scalar_one_or_none()
+                if cat:
+                    doc.suggested_category_id = cat.id
+            await db.flush()
+            logger.info(f"Document {document_id}: auto-tagged with {len(tags.get('keywords', []))} keywords")
+        except Exception as tag_err:
+            logger.warning(f"Document {document_id} tagging skipped: {tag_err}")
+
         logger.info(f"Document {document_id} processed successfully")
 
     except Exception as e:

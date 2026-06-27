@@ -15,20 +15,39 @@
 
       <nav class="conv-list" v-if="conversations.length">
         <div
-          v-for="conv in conversations"
+          v-for="conv in sortedConversations"
           :key="conv.id"
           class="conv-item"
-          :class="{ active: conv.id === currentConvId }"
-          @click="selectConversation(conv)"
+          :class="{ active: conv.id === currentConvId, pinned: pinnedIds.includes(conv.id) }"
+          @click="menuOpenId === conv.id ? null : selectConversation(conv)"
         >
-          <span class="conv-title">{{ conv.title }}</span>
-          <el-popconfirm title="删除此对话？" @confirm="deleteConversation(conv.id, $event)">
-            <template #reference>
-              <button class="conv-delete" @click.stop>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l8 8M11 3l-8 8"/></svg>
-              </button>
-            </template>
-          </el-popconfirm>
+          <!-- 删除确认 -->
+          <template v-if="deletingConvId === conv.id">
+            <span class="confirm-inline">确定删除？</span>
+            <button class="btn-confirm-inline" @click.stop="deleteConversation(conv.id); deletingConvId = null">确定</button>
+            <button class="btn-cancel-inline" @click.stop="deletingConvId = null">取消</button>
+          </template>
+
+          <!-- 重命名 -->
+          <template v-else-if="renamingId === conv.id">
+            <input
+              v-model="renameText"
+              class="rename-input"
+              @keydown.enter="doRename(conv.id)"
+              @keydown.escape="renamingId = null"
+              @blur="doRename(conv.id)"
+              ref="renameInputRef"
+            />
+          </template>
+
+          <!-- 正常显示 -->
+          <template v-else>
+            <span class="conv-title">{{ conv.title }}</span>
+            <button class="conv-menu-btn" @click.stop="toggleMenu(conv.id, $event)" title="更多操作">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="13" cy="8" r="1.5"/></svg>
+            </button>
+
+          </template>
         </div>
       </nav>
       <div class="conv-empty" v-else>
@@ -48,6 +67,10 @@
       <div class="chat-topbar">
         <span class="conv-label" v-if="currentConvId && currentConvTitle">{{ currentConvTitle }}</span>
         <span class="conv-label muted" v-else>AI 知识库助手</span>
+        <div class="mode-toggle">
+          <button :class="['mode-btn', { active: chatMode === 'rag' }]" @click="chatMode = 'rag'">RAG</button>
+          <button :class="['mode-btn', { active: chatMode === 'agent' }]" @click="chatMode = 'agent'">Agent</button>
+        </div>
       </div>
 
       <!-- 消息区 -->
@@ -60,7 +83,7 @@
             AI 精准回答，来源可溯源。
           </p>
           <div class="welcome-hints">
-            <span class="hint-chip" v-for="q in sampleQuestions" :key="q" @click="inputText = q; sendMessage();">「{{ q }}」</span>
+            <span class="hint-chip" v-for="q in sampleQuestions" :key="q" @click="inputText = q; sendMessage()">「{{ q }}」</span>
           </div>
         </div>
 
@@ -91,6 +114,20 @@
               <button class="fb-btn" :class="{ on: msg.feedback === 'dislike' }" @click="submitFeedback(msg, 'dislike')">
                 <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 9V3m3.5 12l-1.5-7h4.5a1.5 1.5 0 001.5-1.5V3l-2-4H4v6l3.5 3z"/></svg>
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Agent 思考步骤 -->
+        <div v-if="streaming && thinkingSteps.length" class="thinking-bar" :style="{ animation: 'fade-in-up 0.3s ease both' }">
+          <div class="thinking-header">
+            <span class="thinking-dot"></span>
+            <span>AI Agent 思考中</span>
+          </div>
+          <div class="thinking-steps">
+            <div v-for="(step, i) in thinkingSteps" :key="i" class="think-step" :style="{ animation: `fade-in-up 0.25s ease both`, animationDelay: `${i * 0.1}s` }">
+              <span class="step-check">{{ i < thinkingSteps.length - 1 ? '✓' : '·' }}</span>
+              {{ step }}
             </div>
           </div>
         </div>
@@ -130,37 +167,79 @@
         </div>
       </div>
     </main>
+
+    <!-- 全局下拉菜单 — 渲染在最外层，不受 overflow 裁剪 -->
+    <Teleport to="body">
+      <div
+        v-if="menuOpenId"
+        class="conv-dropdown"
+        :style="{ top: dropdownY + 'px', left: dropdownX + 'px' }"
+        @click.stop
+      >
+        <button class="dropdown-item" @click="togglePin(menuOpenId); menuOpenId = null">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.5 1.5L3.5 5.5v3l-2 2.5h11l-2-2.5v-3L4.5 1.5"/></svg>
+          {{ pinnedIds.includes(menuOpenId) ? '取消置顶' : '置顶' }}
+        </button>
+        <button class="dropdown-item" @click="toggleFav(menuOpenId); menuOpenId = null">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 1l2 4 4 .5-3 3 .5 4.5L7 11l-3.5 2 .5-4.5-3-3 4-.5z"/></svg>
+          {{ favIds.includes(menuOpenId) ? '已收藏' : '收藏' }}
+        </button>
+        <button class="dropdown-item" @click="startRenameById(menuOpenId); menuOpenId = null">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 1.5l2.5 2.5M3 10.5l7-7M2 12l1-4 3 3z"/></svg>
+          重命名
+        </button>
+        <div class="dropdown-divider"></div>
+        <button class="dropdown-item danger" @click="deletingConvId = menuOpenId; menuOpenId = null">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h10M4.5 3V2h5v1M3 3l1 9.5h6L11 3"/></svg>
+          删除
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 import api from '../api'
 import { useAuthStore } from '../stores/auth'
+import ConfirmPop from '../components/ConfirmPop.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const conversations = ref([])
+const deletingConvId = ref(null)
 const currentConvId = ref(null)
+const menuOpenId = ref(null)
+const renamingId = ref(null)
+const renameText = ref('')
+const renameInputRef = ref(null)
+const pinnedIds = ref(JSON.parse(localStorage.getItem('pinnedConvs') || '[]'))
+const favIds = ref(JSON.parse(localStorage.getItem('favConvs') || '[]'))
 const currentConvTitle = ref('')
 const messages = ref([])
 const inputText = ref('')
 const streaming = ref(false)
 const streamText = ref('')
 const streamSources = ref([])
+const chatMode = ref('rag')
+const thinkingSteps = ref([])
 const msgArea = ref(null)
 const textareaRef = ref(null)
 
-const sampleQuestions = [
-  '考勤迟到有什么处罚？',
-  '加班补偿标准是什么？',
-  '请假流程是怎样的？',
-]
+const sampleQuestions = ref([])
 
-onMounted(fetchConversations)
+onMounted(() => { fetchConversations(); fetchSuggestions(); document.addEventListener('click', onGlobalClick) })
+onUnmounted(() => document.removeEventListener('click', onGlobalClick))
+function onGlobalClick() { menuOpenId.value = null }
+
+async function fetchSuggestions() {
+  try { sampleQuestions.value = (await api.get('/suggestions/')).data } catch {
+    sampleQuestions.value = ['考勤迟到有什么处罚？', '加班补偿标准是什么？', '请假流程是怎样的？']
+  }
+}
 watch(() => messages.value.length, async () => { await nextTick(); scrollToBottom() })
 
 async function fetchConversations() {
@@ -203,13 +282,13 @@ async function sendMessage() {
   messages.value.push({ role: 'user', content: text })
   if (!currentConvId.value) { currentConvTitle.value = text.slice(0, 30) }
 
-  streamText.value = ''; streamSources.value = []; streaming.value = true
+  streamText.value = ''; streamSources.value = []; thinkingSteps.value = []; streaming.value = true
 
   try {
     const response = await fetch('/api/chat/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authStore.token}` },
-      body: JSON.stringify({ conversation_id: currentConvId.value, message: text }),
+      body: JSON.stringify({ conversation_id: currentConvId.value, message: text, mode: chatMode.value }),
     })
 
     const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ''
@@ -223,7 +302,8 @@ async function sendMessage() {
         if (!line.startsWith('data: ')) continue
         try {
           const data = JSON.parse(line.slice(6))
-          if (data.type === 'sources') { streamSources.value = data.sources }
+          if (data.type === 'thinking') { thinkingSteps.value.push(data.step); await nextTick(); scrollToBottom() }
+          else if (data.type === 'sources') { streamSources.value = data.sources }
           else if (data.type === 'token') { streamText.value += data.content; await nextTick(); scrollToBottom() }
           else if (data.type === 'done') {
             currentConvId.value = data.conversation_id
@@ -260,6 +340,48 @@ function autoResize() {
 function renderMd(text) { return marked.parse(text || '', { breaks: true }) }
 
 function handleLogout() { authStore.logout(); router.push('/login') }
+
+const dropdownX = ref(0)
+const dropdownY = ref(0)
+
+function toggleMenu(id, event) {
+  if (menuOpenId.value === id) { menuOpenId.value = null; return }
+  const rect = event.currentTarget.getBoundingClientRect()
+  dropdownX.value = rect.left + 75  // 菜单在按钮右侧
+  dropdownY.value = rect.bottom + 4
+  menuOpenId.value = id
+}
+function togglePin(id) {
+  const idx = pinnedIds.value.indexOf(id)
+  if (idx > -1) pinnedIds.value.splice(idx, 1)
+  else pinnedIds.value.unshift(id)
+  localStorage.setItem('pinnedConvs', JSON.stringify(pinnedIds.value))
+}
+function toggleFav(id) {
+  const idx = favIds.value.indexOf(id)
+  if (idx > -1) favIds.value.splice(idx, 1)
+  else favIds.value.push(id)
+  localStorage.setItem('favConvs', JSON.stringify(favIds.value))
+}
+function startRename(conv) { renamingId.value = conv.id; renameText.value = conv.title; setTimeout(() => renameInputRef.value?.focus(), 50) }
+function startRenameById(id) { const c = conversations.value.find(x => x.id === id); if (c) startRename(c) }
+async function doRename(id) {
+  const title = renameText.value.trim()
+  renamingId.value = null
+  if (!title) return
+  try { await api.put(`/conversations/${id}/title`, null, { params: { title } }); fetchConversations() } catch {}
+}
+
+// 置顶排序
+const sortedConversations = computed(() => {
+  const convs = [...conversations.value]
+  convs.sort((a, b) => {
+    const aPin = pinnedIds.value.includes(a.id) ? 1 : 0
+    const bPin = pinnedIds.value.includes(b.id) ? 1 : 0
+    return bPin - aPin
+  })
+  return convs
+})
 </script>
 
 <style scoped>
@@ -286,14 +408,53 @@ function handleLogout() { authStore.logout(); router.push('/login') }
   display: flex; align-items: center; padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm); cursor: pointer; margin-bottom: 2px;
   color: var(--color-on-dark-soft); font: var(--text-body-sm); transition: all var(--transition-fast);
+  position: relative;
 }
 .conv-item:hover, .conv-item.active { background: rgba(255,255,255,0.06); color: var(--color-on-dark); }
 .conv-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.conv-delete {
-  opacity: 0; background: none; border: none; color: var(--color-on-dark-soft);
-  cursor: pointer; padding: 2px; border-radius: var(--radius-xs); transition: opacity var(--transition-fast);
+.conv-menu-btn {
+  background: none; border: none; color: var(--color-on-dark-soft);
+  cursor: pointer; padding: 4px; border-radius: var(--radius-xs);
+  flex-shrink: 0; display: flex; opacity: 0.5; transition: opacity var(--transition-fast);
 }
-.conv-item:hover .conv-delete { opacity: 1; }
+.conv-menu-btn:hover { opacity: 1; background: rgba(255,255,255,0.08); color: var(--color-on-dark); }
+
+/* 下拉菜单 — fixed 定位突破 sidebar overflow */
+.conv-dropdown {
+  position: fixed; z-index: 100;
+  min-width: 160px; background: #fefbf2;
+  border: 1px solid #d4cec2; border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(20,20,19,0.10); padding: var(--space-xxs);
+  display: flex; flex-direction: column;
+}
+.dropdown-item {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md); border: none; background: transparent;
+  color: var(--color-body); font: var(--text-body-sm); cursor: pointer;
+  border-radius: var(--radius-sm); transition: all var(--transition-fast);
+  text-align: left; white-space: nowrap;
+}
+.dropdown-item:hover { background: var(--color-surface-cream-strong); color: var(--color-ink); }
+.dropdown-item.danger:hover { background: rgba(198,69,69,0.08); color: var(--color-error); }
+.dropdown-divider { height: 1px; background: var(--color-hairline); margin: var(--space-xxs) 0; }
+
+/* 置顶标记 */
+.conv-item.pinned { background: rgba(255,255,255,0.03); }
+.conv-item.pinned::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--color-primary); border-radius: 0 2px 2px 0; }
+
+/* 重命名输入 */
+.rename-input {
+  flex: 1; background: rgba(255,255,255,0.08); border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm); color: var(--color-on-dark);
+  font: var(--text-body-sm); padding: 4px 8px; outline: none; min-width: 0;
+}
+
+/* 删除确认 */
+.confirm-inline { font: var(--text-caption); color: var(--color-on-dark); white-space: nowrap; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.btn-confirm-inline { height: 26px; padding: 0 10px; font: var(--text-caption); font-weight: 500; background: var(--color-primary); color: var(--color-on-primary); border: none; border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0; }
+.btn-confirm-inline:hover { background: var(--color-primary-active); }
+.btn-cancel-inline { height: 26px; padding: 0 8px; font: var(--text-caption); background: transparent; color: var(--color-on-dark-soft); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0; }
+.btn-cancel-inline:hover { border-color: rgba(255,255,255,0.25); color: var(--color-on-dark); }
 
 .conv-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--color-on-dark-soft); font: var(--text-body-sm); }
 
@@ -315,6 +476,29 @@ function handleLogout() { authStore.logout(); router.push('/login') }
 }
 .conv-label { font: var(--text-title-sm); color: var(--color-ink); }
 .conv-label.muted { color: var(--color-muted); }
+.mode-toggle {
+  margin-left: auto; display: flex; gap: 2px;
+  background: var(--color-surface-card); border-radius: var(--radius-md); padding: 3px;
+}
+.mode-btn {
+  padding: 5px 14px; border: none; background: transparent;
+  font: var(--text-caption); font-weight: 500; color: var(--color-muted);
+  border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast);
+}
+.mode-btn.active { background: var(--color-canvas); color: var(--color-ink); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.mode-btn:hover:not(.active) { color: var(--color-body); }
+
+/* Thinking indicator */
+.thinking-bar {
+  max-width: min(88%, 900px); margin: 0 auto var(--space-lg); padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface-card); border-radius: var(--radius-lg); border: 1px solid var(--color-hairline);
+}
+.thinking-header { display: flex; align-items: center; gap: var(--space-sm); font: var(--text-caption); font-weight: 500; color: var(--color-ink); margin-bottom: var(--space-sm); }
+.thinking-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-accent-amber); animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.thinking-steps { display: flex; flex-direction: column; gap: 2px; }
+.think-step { font: var(--text-caption); color: var(--color-muted); display: flex; align-items: center; gap: var(--space-xs); }
+.step-check { color: var(--color-success); font-size: 11px; width: 14px; flex-shrink: 0; }
 
 .messages-area {
   flex: 1; overflow-y: auto;
