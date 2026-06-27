@@ -40,13 +40,19 @@ app = FastAPI(
 from app.middleware.audit_middleware import AuditMiddleware
 app.add_middleware(AuditMiddleware)
 
-# CORS 配置
+# CORS 配置（来源可通过 CORS_ORIGINS 环境变量配置，逗号分隔）
+_cors_origins_raw = getattr(settings, "CORS_ORIGINS", "") or ""
+_cors_origins = (
+    [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+    if _cors_origins_raw
+    else ["http://localhost:5173", "http://localhost:3000", "http://localhost"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # 注册路由

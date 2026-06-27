@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     APP_NAME: str = "RAG知识库平台"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = True
+    CORS_ORIGINS: str = ""  # 逗号分隔，为空则使用默认值
+    RATE_LIMIT: str = "200/minute"  # 全局速率限制
 
     # --- 数据库 ---
     DATABASE_URL: str = ""  # 环境变量覆盖（测试用SQLite等场景）

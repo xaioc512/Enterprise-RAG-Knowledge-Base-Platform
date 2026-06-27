@@ -1,6 +1,6 @@
 """认证路由 — /api/auth"""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,12 +21,18 @@ from app.services.auth_service import (
     decode_access_token,
 )
 from app.middleware.auth_middleware import get_current_user
+from app.middleware.rate_limit import RateLimiter, rate_limit
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    req: LoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _rate_ok: bool = Depends(rate_limit("login", max_requests=10, window_seconds=60)),
+):
     """用户登录"""
     result = await db.execute(
         select(User).where(User.username == req.username)
@@ -61,7 +67,12 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(
+    req: RegisterRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _rate_ok: bool = Depends(rate_limit("register", max_requests=5, window_seconds=60)),
+):
     """用户注册 — 提供正确的 admin_key 则注册为管理员"""
     # 检查用户名是否已存在
     result = await db.execute(
