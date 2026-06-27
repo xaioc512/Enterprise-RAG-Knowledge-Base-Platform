@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # --- DeepSeek ---
-    DEEPSEEK_API_KEY: str = "sk-40b3170c140e449ebaa2ac937f62c084"
+    DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
     DEEPSEEK_CHAT_MODEL: str = "deepseek-chat"
     DEEPSEEK_EMBED_MODEL: str = "deepseek-embedding"  # 待确认具体模型名

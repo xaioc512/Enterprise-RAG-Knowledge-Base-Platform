@@ -1,0 +1,115 @@
+# ============================================
+# 企业AI知识库平台 — Docker Compose 编排
+# 启动: docker-compose up -d
+# 停止: docker-compose down
+# ============================================
+
+version: "3.8"
+
+services:
+  # ==========================================
+  # MySQL 8.0 数据库
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    container_name: rag-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-change-me}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rag_platform}
+      MYSQL_USER: ${MYSQL_USER:-rag_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me-in-production}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root-change-me}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - rag-network
+
+  # ==========================================
+  # Redis 缓存/消息队列
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: rag-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rag-network
+
+  # ==========================================
+  # 后端 FastAPI 服务
+  # ==========================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: rag-backend
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/app/uploads
+      - chroma_data:/app/chroma_data
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rag-network
+
+  # ==========================================
+  # 前端 Nginx 服务
+  # ==========================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: rag-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - rag-network
+
+# ==========================================
+# 数据卷
+# ==========================================
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+  chroma_data:
+    driver: local
+
+# ==========================================
+# 网络
+# ==========================================
+networks:
+  rag-network:
+    driver: bridge
