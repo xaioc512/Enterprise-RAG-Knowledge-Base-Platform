@@ -186,8 +186,8 @@ enterprise-rag-platform/
 ├── docs/                       # 8份技术文档
 ├── devlog/                     # 开发日志
 ├── docker-compose.yml          # Docker Compose 编排
-├── Dockerfile.backend          # 后端 Docker 镜像
-├── Dockerfile.frontend         # 前端 Docker 镜像
+├── backend/Dockerfile          # 后端 Docker 镜像
+├── frontend/Dockerfile         # 前端 Docker 镜像
 ├── Makefile                    # 便捷命令
 ├── CHANGELOG.md                # 版本变更
 └── LICENSE                     # MIT License

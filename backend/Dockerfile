@@ -48,7 +48,7 @@ COPY backend/ .
 RUN mkdir -p logs uploads chroma_data
 
 # 复制启动脚本
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 EXPOSE 8000
